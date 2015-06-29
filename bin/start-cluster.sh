@@ -6,7 +6,7 @@ source $(dirname $0)/docker.host.sh
 
 DOCKER_RIAK_CLUSTER_SIZE=${DOCKER_RIAK_CLUSTER_SIZE:-5}
 
-if docker ps -a | grep "platbox/riak" >/dev/null; then
+if docker ps -a | grep "${DOCKER_IMAGE}" >/dev/null; then
   echo ""
   echo "It looks like you already have some Riak containers running."
   echo "Please take them down before attempting to bring up another"
@@ -33,6 +33,11 @@ publish_pb_port="8087"
 # defaults to 100.
 
 DOCKER_RIAK_PROTO_BUF_PORT_OFFSET=${DOCKER_RIAK_PROTO_BUF_PORT_OFFSET:-100}
+DOCKER_BASE_ARGS=$(echo \
+  "-d" \
+  "-e" "DOCKER_RIAK_CLUSTER_SIZE=${DOCKER_RIAK_CLUSTER_SIZE}" \
+  "-e" "DOCKER_RIAK_AUTOMATIC_CLUSTERING=${DOCKER_RIAK_AUTOMATIC_CLUSTERING}"
+)
 
 for index in $(seq -f "%02g" "1" "${DOCKER_RIAK_CLUSTER_SIZE}");
 do
@@ -44,21 +49,18 @@ do
     publish_pb_port="${final_pb_port}:8087"
   fi
 
+  DOCKER_ARGS=$(echo \
+    "${DOCKER_BASE_ARGS}" \
+    "-p" $publish_http_port \
+    "-p" $publish_pb_port \
+    "-v" /var/lib/riak${index}:/var/lib/riak \
+    --name "riak${index}"
+  )
+
   if [ "${index}" -gt "1" ] ; then
-    docker run -e "DOCKER_RIAK_CLUSTER_SIZE=${DOCKER_RIAK_CLUSTER_SIZE}" \
-               -e "DOCKER_RIAK_AUTOMATIC_CLUSTERING=${DOCKER_RIAK_AUTOMATIC_CLUSTERING}" \
-               -p $publish_http_port \
-               -p $publish_pb_port \
-               --link "riak01:seed" \
-               --name "riak${index}" \
-               -d platbox/riak > /dev/null 2>&1
+    docker run ${DOCKER_ARGS} --link "riak01:seed" ${DOCKER_IMAGE}
   else
-    docker run -e "DOCKER_RIAK_CLUSTER_SIZE=${DOCKER_RIAK_CLUSTER_SIZE}" \
-               -e "DOCKER_RIAK_AUTOMATIC_CLUSTERING=${DOCKER_RIAK_AUTOMATIC_CLUSTERING}" \
-               -p $publish_http_port \
-               -p $publish_pb_port \
-               --name "riak${index}" \
-               -d platbox/riak > /dev/null 2>&1
+    docker run ${DOCKER_ARGS} ${DOCKER_IMAGE}
   fi
 
   CONTAINER_ID=$(docker ps | egrep "riak${index}[^/]" | cut -d" " -f1)
@@ -66,7 +68,7 @@ do
 
   until curl -s "http://${CLEAN_DOCKER_HOST}:${CONTAINER_PORT}/ping" | grep "OK" > /dev/null 2>&1;
   do
-    sleep 3
+    sleep 2
   done
 
   echo "  Successfully brought up [riak${index}]"
