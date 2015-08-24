@@ -1,6 +1,7 @@
 #! /bin/bash
 
 DOCKER_IMAGE="platbox/riak"
+DOCKER_RIAK_BASE_HTTP_PORT=32829
 
 if [ -z "${DOCKER_HOST}" ]; then
   echo ""
