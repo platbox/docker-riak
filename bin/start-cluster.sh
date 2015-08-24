@@ -51,7 +51,7 @@ do
     "${DOCKER_BASE_ARGS}" \
     "-p" $publish_http_port \
     "-p" $publish_pb_port \
-    "-v" /var/lib/riak${index}:/var/lib/riak \
+    "-v" /var/lib/riak \
     --name "riak${index}"
   )
 
